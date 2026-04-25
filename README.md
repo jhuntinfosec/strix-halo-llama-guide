@@ -121,5 +121,4 @@ export HSA_ENABLE_SDMA=0
 
 ## 🧠 Architecture: RDNA 3 vs 3.5
 The Radeon 8060S (Strix Halo) uses RDNA 3.5. While more efficient, ROCm 7.2.2 libraries are often better optimized for the baseline RDNA 3 (`gfx1100`). Spoofing the hardware ID allows the model to utilize highly mature kernels while running on the latest 256-bit unified memory bus.
-```
 
