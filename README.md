@@ -105,9 +105,83 @@ export HSA_ENABLE_SDMA=0
 - **`--threads 8`**: Prevents the CPU from saturating the memory bus, leaving bandwidth for the iGPU.
 - **`MMQ` Variables**: Tunes Matrix Multiplication to the specific Compute Unit alignment of the 8060S.
 
+---
 
+## 🤖 5. Automated Workflows & Launcher Scripts
+
+To avoid manual exports and typos, use these wrapper scripts. They ensure the environment is correctly spoofed for every session.
+
+### 1. Interactive CLI Launcher (`run_gemma.sh`)
+Use this for one-off research tasks and testing.
+```bash
+#!/bin/bash
+export HSA_OVERRIDE_GFX_VERSION=11.0.0
+export ROCBLAS_TARGET=gfx1100
+export HIP_VISIBLE_DEVICES=0
+export HSA_ENABLE_SDMA=0
+# MMQ Tuning
+export GGML_CUDA_MMQ_X=48
+export GGML_CUDA_MMQ_Y=64
+export GGML_CUDA_NWARPS=4
+
+./build/bin/llama-cli -m [PATH_TO_MODEL] -ngl 99 -fa on -c 32768 -dio --no-mmap --threads 8 "$@"
+```
+
+### 2. Local API Node (`serve_gemma.sh`)
+Use this to turn your Strix Halo into an OpenAI-compatible API endpoint (Port 8080).
+```bash
+#!/bin/bash
+# (Includes same exports as above)
+./build/bin/llama-server -m [PATH_TO_MODEL] --host 0.0.0.0 --port 8080 -ngl 99 -fa on -c 65536 -ctk q8_0 -ctv q8_0 -dio --no-mmap --threads 8 --jinja
+```
 
 ---
+
+## ⚙️ 6. Systemd Service (Autostart)
+
+To make your **Gemma 4 Intelligence Node** persistent across reboots on Pop!_OS, set it up as a system service.
+
+
+### 1. Create the Service File
+```bash
+sudo nano /etc/systemd/system/gemma-node.service
+```
+
+### 2. Paste the Configuration
+*Replace `YOUR_USER` and `/path/to/llama.cpp` with your actual details.*
+
+```ini
+[Unit]
+Description=Gemma 4 Intelligence Node (Strix Halo)
+After=network.target
+
+[Service]
+# Group=render is essential for ROCm/GPU access
+User=YOUR_USER
+Group=render
+WorkingDirectory=/home/YOUR_USER/llama.cpp
+ExecStart=/bin/bash /home/YOUR_USER/llama.cpp/serve_gemma.sh
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+### 3. Enable and Start
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable gemma-node
+sudo systemctl start gemma-node
+
+# Check status
+sudo systemctl status gemma-node
+```
+
+Your system will  automatically initialize the iGPU and load the 31B model into memory the moment you boot into Pop!_OS. You can instantly query it from any script or app via `http://localhost:8080`.
+
+---
+
 
 ## 📈 Performance Targets (31B Q4_K_M)
 - **Prompt Processing**: ~50.7 t/s
